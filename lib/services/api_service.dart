@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:http/http.dart' as http;
 import '../models/now_playing.dart';
 
@@ -20,10 +21,10 @@ class ApiService {
           return NowPlaying.fromApiJson(station);
         }
       } else {
-        print('API error ${response.statusCode}');
+        log('API error ${response.statusCode}');
       }
     } catch (e) {
-      print('Erreur API: $e');
+      log('Erreur API: $e');
     }
 
     return null;

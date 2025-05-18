@@ -6,10 +6,12 @@ class NowPlayingWidget extends StatelessWidget {
   final String coverUrl;
 
   const NowPlayingWidget({
+    super.key,
     required this.title,
     required this.artist,
     required this.coverUrl,
   });
+
 
   @override
   Widget build(BuildContext context) {
