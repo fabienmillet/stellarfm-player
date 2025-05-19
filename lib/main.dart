@@ -6,9 +6,14 @@ import 'package:fluent_ui/fluent_ui.dart' as fluent;
 import 'package:bitsdojo_window/bitsdojo_window.dart';
 
 import 'views/now_playing/now_playing_page.dart';
+import 'package:stellarfm_player/audio/audio_handler.dart';
+import 'package:audio_service/audio_service.dart';
 
-void main() {
-  runApp(const StellarFMApp());
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  final audioHandler = await initAudioHandler();
+  runApp(StellarFMApp(audioHandler: audioHandler));
 
   if (!kIsWeb && (Platform.isWindows || Platform.isMacOS || Platform.isLinux)) {
     doWhenWindowReady(() {
@@ -22,7 +27,9 @@ void main() {
 }
 
 class StellarFMApp extends StatelessWidget {
-  const StellarFMApp({super.key});
+  final AudioHandler audioHandler;
+
+  const StellarFMApp({super.key, required this.audioHandler});
 
   @override
   Widget build(BuildContext context) {
@@ -31,21 +38,30 @@ class StellarFMApp extends StatelessWidget {
         debugShowCheckedModeBanner: false,
         title: 'StellarFM',
         theme: ThemeData.dark(),
-        home: const NowPlayingPage(platform: 'material'),
+        home: NowPlayingPage(
+          platform: 'material',
+          audioHandler: audioHandler,
+        ),
       );
     } else if (Platform.isIOS || Platform.isMacOS) {
       return CupertinoApp(
         debugShowCheckedModeBanner: false,
         title: 'StellarFM',
         theme: const CupertinoThemeData(brightness: Brightness.dark),
-        home: const NowPlayingPage(platform: 'cupertino'),
+        home: NowPlayingPage(
+          platform: 'cupertino',
+          audioHandler: audioHandler,
+        ),
       );
     } else if (Platform.isWindows) {
       return fluent.FluentApp(
         debugShowCheckedModeBanner: false,
         title: 'StellarFM',
         theme: fluent.FluentThemeData(brightness: fluent.Brightness.dark),
-        home: const NowPlayingPage(platform: 'fluent'),
+        home: NowPlayingPage(
+          platform: 'fluent',
+          audioHandler: audioHandler,
+        ),
       );
     } else {
       return MaterialApp(
