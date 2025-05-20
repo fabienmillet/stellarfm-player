@@ -5,6 +5,7 @@ import 'package:just_audio/just_audio.dart';
 class StellarAudioHandler extends BaseAudioHandler with SeekHandler {
   final AudioPlayer _player = AudioPlayer();
   String? _currentUrl;
+  AudioPlayer get player => _player;
 
   StellarAudioHandler() {
     _player.playbackEventStream.map(_transformEvent).pipe(playbackState);
@@ -18,7 +19,6 @@ class StellarAudioHandler extends BaseAudioHandler with SeekHandler {
     required String coverUrl,
   }) async {
     try {
-      // 💡 D'abord les métadonnées (certains OS ne les affichent que si déjà en place avant lecture)
       updateMetadata(
         url: url,
         title: title,
@@ -32,8 +32,14 @@ class StellarAudioHandler extends BaseAudioHandler with SeekHandler {
         await Future.delayed(const Duration(milliseconds: 300));
         await _player.play();
       }
-    } catch (e) {
-      log("Erreur de lecture : $e");
+
+      // 🔁 Ajoute ce bloc pour observer les états
+      _player.playerStateStream.listen((state) {
+        log('[JUST_AUDIO] processing=${state.processingState}, playing=${state.playing}');
+      });
+
+    } catch (e, stack) {
+      log('Erreur dans playStream()', error: e, stackTrace: stack, name: 'AudioHandler');
     }
   }
 
@@ -59,7 +65,24 @@ class StellarAudioHandler extends BaseAudioHandler with SeekHandler {
   }
 
   @override
-  Future<void> play() => _player.play();
+  Future<void> play() async {
+    try {
+      // Si le flux est terminé ou inactif, on relance l'URL actuelle
+      if (_player.processingState == ProcessingState.completed ||
+          _player.processingState == ProcessingState.idle ||
+          (_player.processingState == ProcessingState.ready && !_player.playing)) {
+        if (_currentUrl != null) {
+          await _player.setUrl(_currentUrl!);
+          await Future.delayed(const Duration(milliseconds: 300));
+        }
+      }
+
+      await _player.play();
+    } catch (e) {
+      log("Erreur lors de la reprise de la lecture : $e");
+    }
+  }
+
 
   @override
   Future<void> pause() => _player.pause();

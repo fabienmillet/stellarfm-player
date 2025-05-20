@@ -1,13 +1,14 @@
 import 'dart:ui';
+import 'dart:developer';
 
 import 'package:audio_service/audio_service.dart';
+import 'package:just_audio/just_audio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../../controllers/now_playing_controller.dart';
-import '../../widgets/player_controls.dart';
-import '../../widgets/playback_progress.dart';
+import '../../widgets/now_playing_info.dart';
 import '../../widgets/now_playing_title_bar.dart';
 import 'package:stellarfm_player/audio/audio_handler.dart';
 
@@ -28,6 +29,9 @@ class NowPlayingPage extends StatefulWidget {
 class _NowPlayingPageState extends State<NowPlayingPage> {
   final controller = NowPlayingController();
 
+  bool _isLoading = false;
+  bool _isPlaying = false;
+
   StellarAudioHandler get _stellarHandler =>
       widget.audioHandler as StellarAudioHandler;
 
@@ -35,16 +39,36 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
   void initState() {
     super.initState();
 
+    _stellarHandler.player.playerStateStream.listen((state) {
+      final isActuallyPlaying = state.playing &&
+          state.processingState == ProcessingState.ready;
+
+      if (mounted) {
+        setState(() {
+          _isPlaying = isActuallyPlaying;
+          if (isActuallyPlaying) _isLoading = false;
+        });
+      }
+    });
+
     controller.onTrackChanged = (title, artist, coverUrl, url) {
-      _stellarHandler.playStream(
-        url: url,
-        title: title,
-        artist: artist,
-        coverUrl: coverUrl,
-      );
+      if (_isPlaying) {
+        _stellarHandler.playStream(
+          url: url,
+          title: title,
+          artist: artist,
+          coverUrl: coverUrl,
+        );
+      } else {
+        _stellarHandler.updateMetadata(
+          url: url,
+          title: title,
+          artist: artist,
+          coverUrl: coverUrl,
+        );
+      }
     };
 
-    // ✅ Donne 100ms de "respiration" au framework pour que les handlers soient prêts
     Future.delayed(const Duration(milliseconds: 100), () {
       controller.start();
     });
@@ -57,9 +81,14 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
   }
 
   void _togglePlayback() async {
-    final state = await widget.audioHandler.playbackState.first;
+    if (_isLoading) return;
 
-    if (state.playing) {
+    setState(() => _isLoading = true);
+
+    try {
+      final playbackState = await widget.audioHandler.playbackState.first;
+
+    if (playbackState.playing) {
       await widget.audioHandler.pause();
     } else if (controller.streamUrl.isNotEmpty) {
       await _stellarHandler.playStream(
@@ -69,74 +98,47 @@ class _NowPlayingPageState extends State<NowPlayingPage> {
         coverUrl: controller.coverUrl,
       );
     }
+    } catch (e, stack) {
+      log("Erreur lecture/pause", error: e, stackTrace: stack, name: 'NowPlaying');
+    } finally {
+      setState(() => _isLoading = false); // 👈 FIN DU LOADER GARANTIE
+    }
   }
 
-  String _getCoverUrl() {
-    if (kIsWeb && controller.coverUrl.isNotEmpty) {
-      return 'https://corsproxy.io/?${controller.coverUrl}';
-    }
-    return controller.coverUrl;
+  String get coverUrl {
+  if (kIsWeb) {
+    return 'https://api.stellarfm.fr/getpic';
   }
+  return controller.coverUrl;
+}
 
   @override
   Widget build(BuildContext context) {
     final content = AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final trackInfo = Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (controller.coverUrl.isNotEmpty)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.network(
-                  _getCoverUrl(),
-                  width: 250,
-                  height: 250,
-                  fit: BoxFit.cover,
-                ),
-              ),
-            const SizedBox(height: 30),
-            Text(
-              controller.title,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-            ),
-            Text(
-              controller.artist,
-              style: TextStyle(fontSize: 16, color: Colors.grey[300]),
-            ),
-            const SizedBox(height: 30),
-            PlaybackProgress(elapsed: controller.elapsed, duration: controller.duration),
-            const SizedBox(height: 20),
-            StreamBuilder<PlaybackState>(
-              stream: widget.audioHandler.playbackState,
-              builder: (context, snapshot) {
-                final playing = snapshot.data?.playing ?? false;
-                return PlayerControls(
-                  isPlaying: playing,
-                  onPlayPause: _togglePlayback,
-                  onRefresh: controller.start,
-                );
-              },
-            ),
-            const SizedBox(height: 30),
-            const Text("🎶 À suivre :", style: TextStyle(fontSize: 16, color: Colors.white)),
-            Text(
-              "${controller.nextTitle} – ${controller.nextArtist}",
-              textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[300]),
-            ),
-          ],
+        final trackInfo = NowPlayingInfo(
+          title: controller.title,
+          artist: controller.artist,
+          nextTitle: controller.nextTitle,
+          nextArtist: controller.nextArtist,
+          coverUrl: controller.coverUrl,
+          elapsed: controller.elapsed,
+          duration: controller.duration,
+          isPlaying: _isPlaying,
+          isLoading: _isLoading,
+          onPlayPause: _togglePlayback,
+          onRefresh: controller.start,
         );
 
         final background = controller.coverUrl.isNotEmpty
             ? ImageFiltered(
                 imageFilter: ImageFilter.blur(sigmaX: 25, sigmaY: 25),
                 child: ColorFiltered(
-                  colorFilter: ColorFilter.mode(Colors.black.withAlpha((0.4 * 255).toInt()), BlendMode.darken),
+                  colorFilter: ColorFilter.mode(
+                      Colors.black.withAlpha((0.4 * 255).toInt()), BlendMode.darken),
                   child: Image.network(
-                    _getCoverUrl(),
+                    controller.coverUrl,
                     fit: BoxFit.cover,
                     width: double.infinity,
                     height: double.infinity,

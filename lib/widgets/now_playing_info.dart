@@ -13,6 +13,7 @@ class NowPlayingInfo extends StatelessWidget {
   final VoidCallback onPlayPause;
   final VoidCallback onRefresh;
   final bool isPlaying;
+  final bool isLoading;
 
   const NowPlayingInfo({
     super.key,
@@ -26,6 +27,7 @@ class NowPlayingInfo extends StatelessWidget {
     required this.onPlayPause,
     required this.onRefresh,
     required this.isPlaying,
+    required this.isLoading,
   });
 
   @override
@@ -60,6 +62,7 @@ class NowPlayingInfo extends StatelessWidget {
           isPlaying: isPlaying,
           onPlayPause: onPlayPause,
           onRefresh: onRefresh,
+          isLoading: isLoading,
         ),
         const SizedBox(height: 30),
         const Text("🎶 À suivre :", style: TextStyle(fontSize: 16, color: Colors.white)),

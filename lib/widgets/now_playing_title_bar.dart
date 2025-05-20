@@ -1,16 +1,26 @@
-// widgets/now_playing_title_bar.dart
-import 'dart:io';
-import 'package:bitsdojo_window/bitsdojo_window.dart';
+import 'package:flutter/foundation.dart'; // 👈 pour kIsWeb
 import 'package:flutter/material.dart';
+
+/// Import conditionnel pour bitsdojo_window
+import 'package:bitsdojo_window/bitsdojo_window.dart'
+    if (dart.library.html) 'stub_bitsdojo.dart';
 
 class NowPlayingTitleBar extends StatelessWidget {
   const NowPlayingTitleBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-  if (!Platform.isWindows && !Platform.isMacOS && !Platform.isLinux) {
-  return const SizedBox.shrink(); // Pas de titre sur mobile
-  }
+    // ❌ Ne pas afficher sur Web ou mobile
+    if (kIsWeb) return const SizedBox.shrink();
+
+    final isDesktop = [
+      TargetPlatform.windows,
+      TargetPlatform.macOS,
+      TargetPlatform.linux,
+    ].contains(defaultTargetPlatform);
+
+    if (!isDesktop) return const SizedBox.shrink();
+
     return WindowTitleBarBox(
       child: Container(
         height: 40,
@@ -25,7 +35,11 @@ class NowPlayingTitleBar extends StatelessWidget {
                   child: Text(
                     "StellarFM",
                     overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                    ),
                   ),
                 ),
               ),
